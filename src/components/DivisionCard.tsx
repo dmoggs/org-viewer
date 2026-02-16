@@ -1,0 +1,117 @@
+import { useState } from 'react';
+import type { Division, Person } from '../types/org';
+import { GroupCard } from './GroupCard';
+
+interface DivisionCardProps {
+  division: Division;
+  onEditDivision: () => void;
+  onDeleteDivision: () => void;
+  onAddGroup: () => void;
+  onEditGroup: (groupId: string) => void;
+  onDeleteGroup: (groupId: string) => void;
+  onSetGroupManager: (groupId: string) => void;
+  onRemoveGroupManager: (groupId: string) => void;
+  onAddGroupStaffEngineer: (groupId: string) => void;
+  onRemoveGroupStaffEngineer: (groupId: string, personId: string) => void;
+  onEditGroupStaffEngineer: (groupId: string, person: Person) => void;
+  onAddTeam: (groupId: string) => void;
+  onEditTeam: (groupId: string, teamId: string) => void;
+  onDeleteTeam: (groupId: string, teamId: string) => void;
+  onAddTeamMember: (groupId: string, teamId: string) => void;
+  onEditTeamMember: (groupId: string, teamId: string, person: Person) => void;
+  onDeleteTeamMember: (groupId: string, teamId: string, personId: string) => void;
+}
+
+export function DivisionCard({
+  division,
+  onEditDivision,
+  onDeleteDivision,
+  onAddGroup,
+  onEditGroup,
+  onDeleteGroup,
+  onSetGroupManager,
+  onRemoveGroupManager,
+  onAddGroupStaffEngineer,
+  onRemoveGroupStaffEngineer,
+  onEditGroupStaffEngineer,
+  onAddTeam,
+  onEditTeam,
+  onDeleteTeam,
+  onAddTeamMember,
+  onEditTeamMember,
+  onDeleteTeamMember,
+}: DivisionCardProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  return (
+    <div className="border-2 border-purple-200 rounded-lg bg-purple-50 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 bg-purple-100 border-b border-purple-200">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-purple-500 hover:text-purple-700 text-sm"
+          >
+            {isCollapsed ? '▶' : '▼'}
+          </button>
+          <h3 className="font-semibold text-purple-900">{division.name}</h3>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onAddGroup}
+            className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
+          >
+            + Group
+          </button>
+          <button
+            onClick={onEditDivision}
+            className="text-xs px-2 py-1 text-purple-700 hover:bg-purple-200 rounded"
+          >
+            Edit
+          </button>
+          <button
+            onClick={onDeleteDivision}
+            className="text-xs px-2 py-1 text-red-600 hover:bg-red-100 rounded"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {/* Content - Groups displayed side by side */}
+      {!isCollapsed && (
+        <div className="p-2">
+          {division.groups.length === 0 ? (
+            <p className="text-sm text-gray-500 italic text-center py-4">
+              No groups yet. Click "+ Group" to add one.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {division.groups.map(group => (
+                <div key={group.id} className="flex-1 min-w-[280px] max-w-[400px]">
+                  <GroupCard
+                    group={group}
+                    compact={true}
+                    onAddTeam={() => onAddTeam(group.id)}
+                    onEditGroup={() => onEditGroup(group.id)}
+                    onDeleteGroup={() => onDeleteGroup(group.id)}
+                    onSetManager={() => onSetGroupManager(group.id)}
+                    onRemoveManager={() => onRemoveGroupManager(group.id)}
+                    onAddStaffEngineer={() => onAddGroupStaffEngineer(group.id)}
+                    onRemoveStaffEngineer={(personId) => onRemoveGroupStaffEngineer(group.id, personId)}
+                    onEditStaffEngineer={(person) => onEditGroupStaffEngineer(group.id, person)}
+                    onAddMemberToTeam={(teamId) => onAddTeamMember(group.id, teamId)}
+                    onEditMemberInTeam={(teamId, person) => onEditTeamMember(group.id, teamId, person)}
+                    onDeleteMemberFromTeam={(teamId, personId) => onDeleteTeamMember(group.id, teamId, personId)}
+                    onEditTeam={(teamId) => onEditTeam(group.id, teamId)}
+                    onDeleteTeam={(teamId) => onDeleteTeam(group.id, teamId)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
