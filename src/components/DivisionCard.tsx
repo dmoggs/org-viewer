@@ -20,6 +20,12 @@ interface DivisionCardProps {
   onAddTeamMember: (groupId: string, teamId: string) => void;
   onEditTeamMember: (groupId: string, teamId: string, person: Person) => void;
   onDeleteTeamMember: (groupId: string, teamId: string, personId: string) => void;
+  // Drag-and-drop between divisions
+  onGroupDragStart: (groupId: string) => void;
+  onGroupDragEnd: () => void;
+  onDivisionDrop: () => void;
+  isDraggingFromHere: boolean;
+  isDragActive: boolean;
 }
 
 export function DivisionCard({
@@ -40,11 +46,29 @@ export function DivisionCard({
   onAddTeamMember,
   onEditTeamMember,
   onDeleteTeamMember,
+  onGroupDragStart,
+  onGroupDragEnd,
+  onDivisionDrop,
+  isDraggingFromHere,
+  isDragActive,
 }: DivisionCardProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isOver, setIsOver] = useState(false);
+  const isDropTarget = isDragActive && !isDraggingFromHere;
 
   return (
-    <div className="border-2 border-purple-200 rounded-lg bg-purple-50 overflow-hidden">
+    <div
+      className={`border-2 rounded-lg overflow-hidden transition-colors ${
+        isOver && isDropTarget
+          ? 'border-purple-500 bg-purple-100'
+          : isDropTarget
+          ? 'border-purple-400 border-dashed bg-purple-50/80'
+          : 'border-purple-200 bg-purple-50'
+      }`}
+      onDragOver={isDropTarget ? (e) => { e.preventDefault(); setIsOver(true); } : undefined}
+      onDragLeave={isDropTarget ? () => setIsOver(false) : undefined}
+      onDrop={isDropTarget ? (e) => { e.preventDefault(); setIsOver(false); onDivisionDrop(); } : undefined}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-purple-100 border-b border-purple-200">
         <div className="flex items-center gap-2">
@@ -82,13 +106,27 @@ export function DivisionCard({
       {!isCollapsed && (
         <div className="p-2">
           {division.groups.length === 0 ? (
-            <p className="text-sm text-gray-500 italic text-center py-4">
-              No groups yet. Click "+ Group" to add one.
+            <p className={`text-sm italic text-center py-4 ${
+              isOver && isDropTarget ? 'text-purple-600 font-medium' : 'text-gray-500'
+            }`}>
+              {isOver && isDropTarget
+                ? 'Drop to move group here'
+                : isDropTarget
+                ? 'Drag a group here to move it'
+                : 'No groups yet. Click "+ Group" to add one.'}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {division.groups.map(group => (
-                <div key={group.id} className="flex-1 min-w-[280px] max-w-[400px]">
+                <div
+                  key={group.id}
+                  className={`flex-1 min-w-[280px] max-w-[400px] ${
+                    isDraggingFromHere ? 'opacity-60' : ''
+                  }`}
+                  draggable
+                  onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onGroupDragStart(group.id); }}
+                  onDragEnd={onGroupDragEnd}
+                >
                   <GroupCard
                     group={group}
                     compact={true}

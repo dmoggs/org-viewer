@@ -6,6 +6,7 @@ import { DivisionCard } from './DivisionCard';
 
 interface PortfolioViewProps {
   portfolio: Portfolio;
+  onTreeView: () => void;
   onEditPortfolio: () => void;
   onDeletePortfolio: () => void;
   onSetHeadOfEngineering: () => void;
@@ -32,10 +33,12 @@ interface PortfolioViewProps {
   onAddTeamMember: (groupId: string, teamId: string, divisionId?: string) => void;
   onEditTeamMember: (groupId: string, teamId: string, person: Person, divisionId?: string) => void;
   onDeleteTeamMember: (groupId: string, teamId: string, personId: string, divisionId?: string) => void;
+  onMoveGroupToDivision: (groupId: string, fromDivisionId: string, toDivisionId: string) => void;
 }
 
 export function PortfolioView({
   portfolio,
+  onTreeView,
   onEditPortfolio,
   onDeletePortfolio,
   onSetHeadOfEngineering,
@@ -60,8 +63,11 @@ export function PortfolioView({
   onAddTeamMember,
   onEditTeamMember,
   onDeleteTeamMember,
+  onMoveGroupToDivision,
 }: PortfolioViewProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // Track which group is being dragged: { groupId, fromDivisionId }
+  const [drag, setDrag] = useState<{ groupId: string; fromDivisionId: string } | null>(null);
   const hasDivisions = portfolio.divisions && portfolio.divisions.length > 0;
 
   return (
@@ -78,6 +84,12 @@ export function PortfolioView({
           <h2 className="text-lg font-bold text-indigo-900">{portfolio.name}</h2>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={onTreeView}
+            className="text-sm px-3 py-1.5 bg-slate-600 text-white rounded-md hover:bg-slate-700"
+          >
+            Tree View
+          </button>
           <button
             onClick={onAddDivision}
             className="text-sm px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700"
@@ -161,7 +173,7 @@ export function PortfolioView({
           {hasDivisions && (
             <div className="space-y-3">
               {portfolio.divisions!.map(division => (
-                <DivisionCard
+              <DivisionCard
                   key={division.id}
                   division={division}
                   onEditDivision={() => onEditDivision(division.id)}
@@ -180,6 +192,14 @@ export function PortfolioView({
                   onAddTeamMember={(groupId, teamId) => onAddTeamMember(groupId, teamId, division.id)}
                   onEditTeamMember={(groupId, teamId, person) => onEditTeamMember(groupId, teamId, person, division.id)}
                   onDeleteTeamMember={(groupId, teamId, personId) => onDeleteTeamMember(groupId, teamId, personId, division.id)}
+                  onGroupDragStart={(groupId) => setDrag({ groupId, fromDivisionId: division.id })}
+                  onGroupDragEnd={() => setDrag(null)}
+                  onDivisionDrop={() => {
+                    if (drag) onMoveGroupToDivision(drag.groupId, drag.fromDivisionId, division.id);
+                    setDrag(null);
+                  }}
+                  isDraggingFromHere={drag?.fromDivisionId === division.id}
+                  isDragActive={drag !== null}
                 />
               ))}
             </div>

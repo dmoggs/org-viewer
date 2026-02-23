@@ -10,6 +10,7 @@ import { PersonForm } from './components/PersonForm';
 import { NameForm } from './components/NameForm';
 import { PortfolioForm } from './components/PortfolioForm';
 import { TimelineView } from './components/timeline/TimelineView';
+import { OrgTreeView } from './components/OrgTreeView';
 
 type ModalType =
   | { type: 'portfolio'; mode: 'add' }
@@ -43,6 +44,7 @@ function App() {
     addGroup,
     updateGroup,
     deleteGroup,
+    moveGroupToDivision,
     addTeam,
     updateTeam,
     deleteTeam,
@@ -61,6 +63,8 @@ function App() {
 
   const [modal, setModal] = useState<ModalType>(null);
   const [viewMode, setViewMode] = useState<'org' | 'timeline'>('org');
+  const [treeViewPortfolioId, setTreeViewPortfolioId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const stats = calculateStats(data);
 
@@ -144,6 +148,21 @@ function App() {
                 Timeline
               </button>
             </div>
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              title={sidebarOpen ? 'Hide stats panel' : 'Show stats panel'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                sidebarOpen
+                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                  : 'border-gray-300 bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="1" y="1" width="12" height="12" rx="1.5" />
+                <line x1="5" y1="1" x2="5" y2="13" />
+              </svg>
+              Stats
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -181,13 +200,15 @@ function App() {
       {/* Main Content */}
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-72 p-4 space-y-4 flex-shrink-0">
-          <SummaryPanel stats={stats} onshoreTargetPercentage={averageonshoreTarget} />
-          <Legend />
-        </aside>
+        {sidebarOpen && (
+          <aside className="w-72 p-4 space-y-4 flex-shrink-0">
+            <SummaryPanel stats={stats} onshoreTargetPercentage={averageonshoreTarget} />
+            <Legend />
+          </aside>
+        )}
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 space-y-4">
+        <main className="flex-1 p-4 space-y-4 min-w-0">
           {viewMode === 'timeline' ? (
             <TimelineView
               data={timelineData}
@@ -213,6 +234,7 @@ function App() {
               <PortfolioView
                 key={portfolio.id}
                 portfolio={portfolio}
+                onTreeView={() => setTreeViewPortfolioId(portfolio.id)}
                 onEditPortfolio={() => setModal({ type: 'portfolio', mode: 'edit', portfolioId: portfolio.id, name: portfolio.name })}
                 onDeletePortfolio={() => {
                   if (confirm(`Delete portfolio "${portfolio.name}"?`)) {
@@ -281,6 +303,9 @@ function App() {
                 }}
                 onAddTeamMember={(groupId, teamId, divisionId) => setModal({ type: 'member', mode: 'add', portfolioId: portfolio.id, groupId, teamId, divisionId })}
                 onEditTeamMember={(groupId, teamId, person, divisionId) => setModal({ type: 'member', mode: 'edit', portfolioId: portfolio.id, groupId, teamId, divisionId, person })}
+                onMoveGroupToDivision={(groupId, fromDivisionId, toDivisionId) =>
+                  moveGroupToDivision(portfolio.id, groupId, fromDivisionId, toDivisionId)
+                }
                 onDeleteTeamMember={(groupId, teamId, personId, divisionId) => {
                   if (confirm('Remove this member?')) {
                     removePersonFromTeam(portfolio.id, groupId, teamId, personId, divisionId);
@@ -293,6 +318,13 @@ function App() {
       </div>
 
       {/* Modals */}
+      {treeViewPortfolioId && (() => {
+        const p = data.portfolios.find(p => p.id === treeViewPortfolioId);
+        return p ? (
+          <OrgTreeView portfolio={p} onClose={() => setTreeViewPortfolioId(null)} />
+        ) : null;
+      })()}
+
       {modal?.type === 'portfolio' && modal.mode === 'add' && (
         <PortfolioForm
           title="Add Portfolio"

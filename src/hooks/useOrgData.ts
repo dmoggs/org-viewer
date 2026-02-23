@@ -241,6 +241,33 @@ export function useOrgData() {
     }));
   }, []);
 
+  /** Move a group from one division to another within the same portfolio. */
+  const moveGroupToDivision = useCallback((
+    portfolioId: string,
+    groupId: string,
+    fromDivisionId: string,
+    toDivisionId: string,
+  ) => {
+    if (fromDivisionId === toDivisionId) return;
+    setData(prev => ({
+      ...prev,
+      portfolios: prev.portfolios.map(p => {
+        if (p.id !== portfolioId) return p;
+        const fromDiv = p.divisions?.find(d => d.id === fromDivisionId);
+        const group = fromDiv?.groups.find(g => g.id === groupId);
+        if (!group) return p;
+        return {
+          ...p,
+          divisions: p.divisions?.map(d => {
+            if (d.id === fromDivisionId) return { ...d, groups: d.groups.filter(g => g.id !== groupId) };
+            if (d.id === toDivisionId)   return { ...d, groups: [...d.groups, group] };
+            return d;
+          }),
+        };
+      }),
+    }));
+  }, []);
+
   // Team operations
   const addTeam = useCallback((portfolioId: string, groupId: string, name: string, divisionId?: string): Team | null => {
     const team: Team = {
@@ -431,6 +458,7 @@ export function useOrgData() {
     addGroup,
     updateGroup,
     deleteGroup,
+    moveGroupToDivision,
     // Team
     addTeam,
     updateTeam,
