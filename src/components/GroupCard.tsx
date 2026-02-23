@@ -58,7 +58,13 @@ export function GroupCard({
             {isCollapsed ? '▶' : '▼'}
           </button>
           <h3 className={`font-semibold text-gray-800 ${compact ? 'text-sm' : ''}`}>{group.name}</h3>
-          <span className={`text-gray-500 ${compact ? 'text-xs' : 'text-sm'}`}>({totalMembers})</span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600 text-xs font-medium">
+            <svg viewBox="0 0 14 14" className="w-3 h-3 flex-shrink-0" fill="currentColor">
+              <circle cx="7" cy="4.5" r="2.5" />
+              <path d="M1.5 12c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5H1.5z" />
+            </svg>
+            {totalMembers}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <button

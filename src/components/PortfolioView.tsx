@@ -7,6 +7,7 @@ import { DivisionCard } from './DivisionCard';
 interface PortfolioViewProps {
   portfolio: Portfolio;
   onTreeView: () => void;
+  onMarkdownView: () => void;
   onEditPortfolio: () => void;
   onDeletePortfolio: () => void;
   onSetHeadOfEngineering: () => void;
@@ -39,6 +40,7 @@ interface PortfolioViewProps {
 export function PortfolioView({
   portfolio,
   onTreeView,
+  onMarkdownView,
   onEditPortfolio,
   onDeletePortfolio,
   onSetHeadOfEngineering,
@@ -70,6 +72,14 @@ export function PortfolioView({
   const [drag, setDrag] = useState<{ groupId: string; fromDivisionId: string } | null>(null);
   const hasDivisions = portfolio.divisions && portfolio.divisions.length > 0;
 
+  const countGroupMembers = (g: { manager?: unknown; staffEngineers: unknown[]; teams: { members: unknown[] }[] }) =>
+    (g.manager ? 1 : 0) + g.staffEngineers.length + g.teams.reduce((s, t) => s + t.members.length, 0);
+  const totalMembers =
+    (portfolio.headOfEngineering ? 1 : 0) +
+    portfolio.principalEngineers.length +
+    (portfolio.divisions ?? []).reduce((sum, d) => sum + d.groups.reduce((s, g) => s + countGroupMembers(g), 0), 0) +
+    portfolio.groups.reduce((sum, g) => sum + countGroupMembers(g), 0);
+
   return (
     <div className="border-2 border-indigo-300 rounded-xl bg-indigo-50 overflow-hidden">
       {/* Header */}
@@ -82,8 +92,21 @@ export function PortfolioView({
             {isCollapsed ? '▶' : '▼'}
           </button>
           <h2 className="text-lg font-bold text-indigo-900">{portfolio.name}</h2>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-200 text-indigo-700 text-xs font-medium">
+            <svg viewBox="0 0 14 14" className="w-3 h-3 flex-shrink-0" fill="currentColor">
+              <circle cx="7" cy="4.5" r="2.5" />
+              <path d="M1.5 12c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5H1.5z" />
+            </svg>
+            {totalMembers}
+          </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={onMarkdownView}
+            className="text-sm px-3 py-1.5 bg-slate-500 text-white rounded-md hover:bg-slate-600"
+          >
+            Markdown
+          </button>
           <button
             onClick={onTreeView}
             className="text-sm px-3 py-1.5 bg-slate-600 text-white rounded-md hover:bg-slate-700"

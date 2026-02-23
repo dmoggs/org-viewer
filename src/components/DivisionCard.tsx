@@ -56,6 +56,9 @@ export function DivisionCard({
   const [isOver, setIsOver] = useState(false);
   const isDropTarget = isDragActive && !isDraggingFromHere;
 
+  const totalMembers = division.groups.reduce((sum, g) =>
+    sum + (g.manager ? 1 : 0) + g.staffEngineers.length + g.teams.reduce((s, t) => s + t.members.length, 0), 0);
+
   return (
     <div
       className={`border-2 rounded-lg overflow-hidden transition-colors ${
@@ -79,6 +82,13 @@ export function DivisionCard({
             {isCollapsed ? '▶' : '▼'}
           </button>
           <h3 className="font-semibold text-purple-900">{division.name}</h3>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-200 text-purple-700 text-xs font-medium">
+            <svg viewBox="0 0 14 14" className="w-3 h-3 flex-shrink-0" fill="currentColor">
+              <circle cx="7" cy="4.5" r="2.5" />
+              <path d="M1.5 12c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5H1.5z" />
+            </svg>
+            {totalMembers}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <button
