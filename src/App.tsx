@@ -11,6 +11,7 @@ import { NameForm } from './components/NameForm';
 import { PortfolioForm } from './components/PortfolioForm';
 import { TimelineView } from './components/timeline/TimelineView';
 import { OrgTreeView } from './components/OrgTreeView';
+import { MarkdownView } from './components/MarkdownView';
 
 type ModalType =
   | { type: 'portfolio'; mode: 'add' }
@@ -64,6 +65,7 @@ function App() {
   const [modal, setModal] = useState<ModalType>(null);
   const [viewMode, setViewMode] = useState<'org' | 'timeline'>('org');
   const [treeViewPortfolioId, setTreeViewPortfolioId] = useState<string | null>(null);
+  const [markdownViewPortfolioId, setMarkdownViewPortfolioId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const stats = calculateStats(data);
@@ -235,6 +237,7 @@ function App() {
                 key={portfolio.id}
                 portfolio={portfolio}
                 onTreeView={() => setTreeViewPortfolioId(portfolio.id)}
+                onMarkdownView={() => setMarkdownViewPortfolioId(portfolio.id)}
                 onEditPortfolio={() => setModal({ type: 'portfolio', mode: 'edit', portfolioId: portfolio.id, name: portfolio.name })}
                 onDeletePortfolio={() => {
                   if (confirm(`Delete portfolio "${portfolio.name}"?`)) {
@@ -322,6 +325,19 @@ function App() {
         const p = data.portfolios.find(p => p.id === treeViewPortfolioId);
         return p ? (
           <OrgTreeView portfolio={p} onClose={() => setTreeViewPortfolioId(null)} />
+        ) : null;
+      })()}
+
+      {markdownViewPortfolioId && (() => {
+        const p = data.portfolios.find(p => p.id === markdownViewPortfolioId);
+        return p ? (
+          <MarkdownView
+            portfolio={p}
+            onClose={() => setMarkdownViewPortfolioId(null)}
+            onApply={(updates) => {
+              updatePortfolio(markdownViewPortfolioId, updates);
+            }}
+          />
         ) : null;
       })()}
 

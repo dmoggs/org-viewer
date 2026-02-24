@@ -130,7 +130,7 @@ export function DivisionCard({
               {division.groups.map(group => (
                 <div
                   key={group.id}
-                  className={`flex-1 min-w-[280px] max-w-[400px] ${
+                  className={`w-[440px] flex-shrink-0 ${
                     isDraggingFromHere ? 'opacity-60' : ''
                   }`}
                   draggable
