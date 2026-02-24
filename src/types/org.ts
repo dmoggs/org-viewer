@@ -23,6 +23,7 @@ export interface Group {
   id: string;
   name: string;
   manager?: Person;
+  managedBy?: string; // Label for an external discipline managing the group (e.g. "TPM") when no EM is available
   staffEngineers: Person[];
   teams: Team[];
 }

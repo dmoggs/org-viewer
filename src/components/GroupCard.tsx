@@ -105,6 +105,18 @@ export function GroupCard({
                   onClick={onSetManager}
                   onRemove={onRemoveManager}
                 />
+              ) : group.managedBy ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 text-xs font-medium cursor-default"
+                  title={`This group has no Engineering Manager. Management responsibility is covered by: ${group.managedBy}`}
+                >
+                  <svg viewBox="0 0 14 14" className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="7" cy="7" r="5.5" />
+                    <path d="M7 4v3.5" strokeLinecap="round" />
+                    <circle cx="7" cy="10" r="0.5" fill="currentColor" stroke="none" />
+                  </svg>
+                  {group.managedBy}
+                </span>
               ) : (
                 <button
                   onClick={onSetManager}

@@ -27,13 +27,38 @@ function portfolioHeadcount(portfolio: Portfolio): number {
   return n;
 }
 
-/** Count of people who report directly to the Head of Engineering. */
+/** Count of people who report directly to the Head of Engineering.
+ *  - Group has an EM       → 1 (the EM absorbs the group)
+ *  - Group has managedBy   → 1 (the external manager absorbs the group)
+ *  - Group has no EM but has group-level Staff Engineers
+ *                          → count those Staff Engineers (they are the senior
+ *                            interface to HoE; team members below don't report up)
+ *  - Group has no EM and no Staff Engineers
+ *                          → 1 (the group itself is one accountability unit for HoE)
+ */
 function hoeDirectReports(portfolio: Portfolio): number {
   let n = portfolio.principalEngineers.length;
+  const details: string[] = [];
+  const countGroup = (g: Group) => {
+    if (g.manager) {
+      n++; // EM is the single direct report
+      details.push(`${g.name}: has EM → +1`);
+    } else if (g.staffEngineers.length > 0) {
+      n += g.staffEngineers.length; // staff engineers act as the HoE interface
+      details.push(`${g.name}: no EM, ${g.staffEngineers.length} SEs → +${g.staffEngineers.length}`);
+    } else if (g.managedBy) {
+      n++; // external manager absorbs the team, counts as 1
+      details.push(`${g.name}: managedBy ${g.managedBy} → +1`);
+    } else {
+      n++; // no leadership at all → the group itself rolls up as one unit
+      details.push(`${g.name}: no EM, no SEs → +1`);
+    }
+  };
   for (const div of portfolio.divisions ?? []) {
-    for (const g of div.groups) if (g.manager) n++;
+    for (const g of div.groups) countGroup(g);
   }
-  for (const g of portfolio.groups) if (g.manager) n++;
+  for (const g of portfolio.groups) countGroup(g);
+  console.log('[hoeDirectReports]', portfolio.name, 'PEs:', portfolio.principalEngineers.length, 'total:', n, details);
   return n;
 }
 
@@ -212,13 +237,15 @@ function TreeChildren({ nodes }: { nodes: ReactNode[] }) {
   );
 }
 
-// ─── Principal Engineers strip ───────────────────────────────────────────────
+// ─── Principal Engineers branch ──────────────────────────────────────────────
 
 /**
- * Renders PEs as an inline leadership panel on the connector line rather than
- * a branching group node, making clear they are part of portfolio leadership.
+ * Renders PEs in a horizontal row, branching off to the right of the vertical
+ * connector between the HoE and the reporting tree. A dashed horizontal line
+ * connects from the solid vertical line to the PE panel, making clear they
+ * are advisory/lateral — not in the reporting chain.
  */
-function PrincipalEngineersStrip({
+function PrincipalEngineersBranch({
   people,
   vcm,
 }: {
@@ -227,14 +254,25 @@ function PrincipalEngineersStrip({
 }) {
   const vc = (p: Person) => vcm.get(p.vendor) ?? NO_VENDOR_COLOUR;
   return (
-    <div className="border border-dashed border-indigo-300 rounded-lg bg-indigo-50/60 px-3 pt-1.5 pb-2">
-      <div className="text-[9px] font-semibold uppercase tracking-widest text-indigo-400 text-center mb-2">
-        Principal Engineers
-      </div>
-      <div className="flex items-start gap-2 flex-wrap justify-center">
-        {people.map((pe) => (
-          <PersonCard key={pe.id} person={pe} reportCount={0} vendorColour={vc(pe)} />
-        ))}
+    <div className="relative flex flex-col items-center">
+      {/* Solid vertical connector segment — tall enough to clear the PE panel */}
+      <div className="w-px min-h-[10rem] bg-gray-300" />
+      {/* PE panel branches off to the right, absolutely positioned so it
+          doesn't shift the vertical line away from centre */}
+      <div className="absolute top-1/2 left-1/2 -translate-y-1/2 flex items-center">
+        {/* Dashed horizontal connector */}
+        <div className="w-8 border-t-2 border-dashed border-indigo-300 flex-shrink-0" />
+        {/* PE panel */}
+        <div className="border border-dashed border-indigo-300 rounded-lg bg-indigo-50/40 px-3 pt-1.5 pb-2 flex-shrink-0">
+          <div className="text-[9px] font-semibold uppercase tracking-widest text-indigo-400 text-center mb-2">
+            Principal Engineers
+          </div>
+          <div className="flex items-start gap-2 flex-wrap">
+            {people.map((pe) => (
+              <PersonCard key={pe.id} person={pe} reportCount={0} vendorColour={vc(pe)} />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -248,17 +286,30 @@ function GroupSubTree({ group, vcm }: { group: Group; vcm: Map<string | undefine
 
   if (group.manager) {
     leafNodes.push(<PersonCard person={group.manager} reportCount={groupHeadcount(group)} vendorColour={vc(group.manager)} />);
+  } else if (group.managedBy) {
+    // Show a placeholder card for the external manager
+    leafNodes.push(
+      <div key="managed-by" className={`bg-amber-50 border border-amber-300 rounded-lg shadow-sm overflow-hidden ${CARD_CLS} text-center select-none`}>
+        <div className="bg-amber-400 h-1 w-full" />
+        <div className="px-2 py-1.5 space-y-0.5">
+          <div className="font-semibold text-amber-800 text-[11px] leading-tight">Managed by</div>
+          <div className="text-[10px] text-amber-700 leading-tight">{group.managedBy}</div>
+          <div className="text-[10px] text-amber-500 pt-0.5">External</div>
+        </div>
+      </div>
+    );
   }
   for (const se of group.staffEngineers) {
     leafNodes.push(<PersonCard person={se} reportCount={0} vendorColour={vc(se)} />);
   }
 
   const total = (group.manager ? 1 : 0) + groupHeadcount(group);
+  const subtitle = group.managedBy && !group.manager ? `Managed by ${group.managedBy} · ${total} people` : `${total} people`;
   const groupCard = (
     <LabelCard
       label={group.name}
       colour="border-blue-300 bg-blue-50 text-blue-800"
-      subtitle={`${total} people`}
+      subtitle={subtitle}
     />
   );
 
@@ -318,40 +369,30 @@ export function OrgTreeView({ portfolio, onClose }: OrgTreeViewProps) {
     level2Nodes.push(<GroupSubTree key={`grp-${i}`} group={portfolio.groups[i]} vcm={vcm} />);
   }
 
-  // Compose the sub-tree: PEs render as an inline strip on the connector line,
-  // NOT as a branching child, so they're clearly leadership not a reporting unit.
+  // PEs branch off the vertical connector between HoE and the reporting tree.
+  // They sit in a horizontal row to the right, connected by a dashed line.
+  // The solid vertical line runs: HoE → PE branch point → reporting tree.
   const hasPEs   = portfolio.principalEngineers.length > 0;
   const hasMain  = level2Nodes.length > 0;
 
-  let treeChildren: ReactNode;
-  if (hasPEs && hasMain) {
-    treeChildren = (
-      <>
-        <VStub />
-        <PrincipalEngineersStrip people={portfolio.principalEngineers} vcm={vcm} />
-        {/* TreeChildren starts with its own VStub, continuing the line */}
-        <TreeChildren nodes={level2Nodes} />
-      </>
-    );
-  } else if (hasPEs) {
-    treeChildren = (
-      <>
-        <VStub />
-        <PrincipalEngineersStrip people={portfolio.principalEngineers} vcm={vcm} />
-      </>
-    );
-  } else if (hasMain) {
-    treeChildren = <TreeChildren nodes={level2Nodes} />;
-  } else {
-    treeChildren = undefined;
-  }
+  const treeChildren: ReactNode = hasMain ? <TreeChildren nodes={level2Nodes} /> : undefined;
+
+  const rootRow = (
+    <div className="flex flex-col items-center">
+      {rootCard}
+      {hasPEs && (
+        <PrincipalEngineersBranch people={portfolio.principalEngineers} vcm={vcm} />
+      )}
+      {treeChildren}
+    </div>
+  );
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-auto p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-auto max-w-[95vw]">
+      <div className="bg-white rounded-2xl shadow-2xl w-auto max-w-[95vw] max-h-[95vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
@@ -386,11 +427,10 @@ export function OrgTreeView({ portfolio, onClose }: OrgTreeViewProps) {
         </div>
 
         {/* Tree */}
-        <div className="p-8 overflow-auto">
-          <TreeNode
-            card={rootCard}
-            children={treeChildren}
-          />
+        <div className="p-8 overflow-auto flex-1 min-h-0">
+          <div className="min-w-max">
+            {rootRow}
+          </div>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { SummaryPanel } from './components/SummaryPanel';
 import { Legend } from './components/Legend';
 import { PersonForm } from './components/PersonForm';
 import { NameForm } from './components/NameForm';
+import { GroupForm } from './components/GroupForm';
 import { PortfolioForm } from './components/PortfolioForm';
 import { TimelineView } from './components/timeline/TimelineView';
 import { OrgTreeView } from './components/OrgTreeView';
@@ -19,7 +20,7 @@ type ModalType =
   | { type: 'division'; mode: 'add'; portfolioId: string }
   | { type: 'division'; mode: 'edit'; portfolioId: string; divisionId: string; name: string }
   | { type: 'group'; mode: 'add'; portfolioId: string; divisionId?: string }
-  | { type: 'group'; mode: 'edit'; portfolioId: string; groupId: string; name: string; divisionId?: string }
+  | { type: 'group'; mode: 'edit'; portfolioId: string; groupId: string; name: string; managedBy?: string; divisionId?: string }
   | { type: 'team'; mode: 'add'; portfolioId: string; groupId: string; divisionId?: string }
   | { type: 'team'; mode: 'edit'; portfolioId: string; groupId: string; teamId: string; name: string; divisionId?: string }
   | { type: 'hoe'; portfolioId: string; person?: Person }
@@ -270,7 +271,7 @@ function App() {
                 onEditGroup={(groupId, divisionId) => {
                   const group = findGroup(portfolio.id, groupId, divisionId);
                   if (group) {
-                    setModal({ type: 'group', mode: 'edit', portfolioId: portfolio.id, groupId, name: group.name, divisionId });
+                    setModal({ type: 'group', mode: 'edit', portfolioId: portfolio.id, groupId, name: group.name, managedBy: group.managedBy, divisionId });
                   }
                 }}
                 onDeleteGroup={(groupId, divisionId) => {
@@ -392,11 +393,10 @@ function App() {
       )}
 
       {modal?.type === 'group' && modal.mode === 'add' && (
-        <NameForm
+        <GroupForm
           title="Add Group"
-          label="Group Name"
-          onSave={(name) => {
-            addGroup(modal.portfolioId, name, modal.divisionId);
+          onSave={(name, managedBy) => {
+            addGroup(modal.portfolioId, name, modal.divisionId, managedBy);
             setModal(null);
           }}
           onCancel={() => setModal(null)}
@@ -404,12 +404,12 @@ function App() {
       )}
 
       {modal?.type === 'group' && modal.mode === 'edit' && (
-        <NameForm
+        <GroupForm
           title="Edit Group"
-          label="Group Name"
-          initialValue={modal.name}
-          onSave={(name) => {
-            updateGroup(modal.portfolioId, modal.groupId, { name }, modal.divisionId);
+          initialName={modal.name}
+          initialManagedBy={modal.managedBy}
+          onSave={(name, managedBy) => {
+            updateGroup(modal.portfolioId, modal.groupId, { name, managedBy }, modal.divisionId);
             setModal(null);
           }}
           onCancel={() => setModal(null)}

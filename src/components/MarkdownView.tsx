@@ -78,6 +78,8 @@ function generateGroupMarkdown(group: Group, depth: number): string {
 
   if (group.manager) {
     lines.push(`Manager: ${leaderPersonLine(group.manager)}`);
+  } else if (group.managedBy) {
+    lines.push(`Managed by: ${group.managedBy}`);
   }
 
   for (const se of group.staffEngineers) {
@@ -443,6 +445,17 @@ function parseMarkdown(text: string): ParseResult {
       } else if (result.person) {
         currentGroup.manager = { id: generateId(), ...result.person } as Person;
       }
+      continue;
+    }
+
+    // ── Managed by line (external discipline covering management) ──
+    const managedByMatch = trimmed.match(/^Managed by:\s*(.+)$/i);
+    if (managedByMatch) {
+      if (!currentGroup) {
+        errors.push({ line: lineNum, message: 'Managed by line found outside of a group' });
+        continue;
+      }
+      currentGroup.managedBy = managedByMatch[1].trim();
       continue;
     }
 

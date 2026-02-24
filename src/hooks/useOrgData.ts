@@ -175,10 +175,11 @@ export function useOrgData() {
   }, []);
 
   // Group operations (supports both direct groups and groups within divisions)
-  const addGroup = useCallback((portfolioId: string, name: string, divisionId?: string): Group | null => {
+  const addGroup = useCallback((portfolioId: string, name: string, divisionId?: string, managedBy?: string): Group | null => {
     const group: Group = {
       id: generateId(),
       name,
+      ...(managedBy ? { managedBy } : {}),
       staffEngineers: [],
       teams: [],
     };
