@@ -13,6 +13,9 @@ import { PortfolioForm } from './components/PortfolioForm';
 import { TimelineView } from './components/timeline/TimelineView';
 import { OrgTreeView } from './components/OrgTreeView';
 import { MarkdownView } from './components/MarkdownView';
+import { CsvImportModal } from './components/CsvImportModal';
+import { ExportAllPdfButton } from './components/ExportAllPdfButton';
+import type { TeamMemberReplacement } from './utils/csvImport';
 
 type ModalType =
   | { type: 'portfolio'; mode: 'add' }
@@ -61,12 +64,14 @@ function App() {
     exportData,
     importData,
     loadTestData,
+    replaceTeamMembers,
   } = useOrgData();
 
   const [modal, setModal] = useState<ModalType>(null);
   const [viewMode, setViewMode] = useState<'org' | 'timeline'>('org');
   const [treeViewPortfolioId, setTreeViewPortfolioId] = useState<string | null>(null);
   const [markdownViewPortfolioId, setMarkdownViewPortfolioId] = useState<string | null>(null);
+  const [csvImportPortfolioId, setCsvImportPortfolioId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const stats = calculateStats(data);
@@ -190,6 +195,7 @@ function App() {
             >
               Export
             </button>
+            <ExportAllPdfButton portfolios={data.portfolios} />
             <button
               onClick={() => setModal({ type: 'portfolio', mode: 'add' })}
               className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -239,6 +245,7 @@ function App() {
                 portfolio={portfolio}
                 onTreeView={() => setTreeViewPortfolioId(portfolio.id)}
                 onMarkdownView={() => setMarkdownViewPortfolioId(portfolio.id)}
+                onCsvImport={() => setCsvImportPortfolioId(portfolio.id)}
                 onEditPortfolio={() => setModal({ type: 'portfolio', mode: 'edit', portfolioId: portfolio.id, name: portfolio.name })}
                 onDeletePortfolio={() => {
                   if (confirm(`Delete portfolio "${portfolio.name}"?`)) {
@@ -325,7 +332,7 @@ function App() {
       {treeViewPortfolioId && (() => {
         const p = data.portfolios.find(p => p.id === treeViewPortfolioId);
         return p ? (
-          <OrgTreeView portfolio={p} onClose={() => setTreeViewPortfolioId(null)} />
+          <OrgTreeView portfolio={p} allPortfolios={data.portfolios} onClose={() => setTreeViewPortfolioId(null)} />
         ) : null;
       })()}
 
@@ -338,6 +345,19 @@ function App() {
             onApply={(updates) => {
               updatePortfolio(markdownViewPortfolioId, updates);
             }}
+          />
+        ) : null;
+      })()}
+
+      {csvImportPortfolioId && (() => {
+        const p = data.portfolios.find(p => p.id === csvImportPortfolioId);
+        return p ? (
+          <CsvImportModal
+            portfolio={p}
+            onApply={(replacements: TeamMemberReplacement[]) => {
+              replaceTeamMembers(replacements);
+            }}
+            onClose={() => setCsvImportPortfolioId(null)}
           />
         ) : null;
       })()}

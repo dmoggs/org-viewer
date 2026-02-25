@@ -444,6 +444,29 @@ export function useOrgData() {
     setData(generateTestData());
   }, []);
 
+  /** Replace team members for multiple teams at once (used by CSV import). */
+  const replaceTeamMembers = useCallback((replacements: { portfolioId: string; divisionId?: string; groupId: string; teamId: string; newMembers: import('../types/org').Person[] }[]) => {
+    setData(prev => {
+      let updated = { ...prev };
+      for (const r of replacements) {
+        updated = {
+          ...updated,
+          portfolios: updated.portfolios.map(p =>
+            p.id === r.portfolioId
+              ? updateGroupInPortfolio(p, r.groupId, r.divisionId, g => ({
+                  ...g,
+                  teams: g.teams.map(t =>
+                    t.id === r.teamId ? { ...t, members: r.newMembers } : t
+                  ),
+                }))
+              : p
+          ),
+        };
+      }
+      return updated;
+    });
+  }, []);
+
   return {
     data,
     loading,
@@ -479,5 +502,7 @@ export function useOrgData() {
     exportData,
     importData,
     loadTestData,
+    // CSV Import
+    replaceTeamMembers,
   };
 }

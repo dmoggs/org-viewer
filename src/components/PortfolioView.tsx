@@ -8,6 +8,7 @@ interface PortfolioViewProps {
   portfolio: Portfolio;
   onTreeView: () => void;
   onMarkdownView: () => void;
+  onCsvImport: () => void;
   onEditPortfolio: () => void;
   onDeletePortfolio: () => void;
   onSetHeadOfEngineering: () => void;
@@ -41,6 +42,7 @@ export function PortfolioView({
   portfolio,
   onTreeView,
   onMarkdownView,
+  onCsvImport,
   onEditPortfolio,
   onDeletePortfolio,
   onSetHeadOfEngineering,
@@ -101,6 +103,12 @@ export function PortfolioView({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={onCsvImport}
+            className="text-sm px-3 py-1.5 bg-amber-500 text-white rounded-md hover:bg-amber-600"
+          >
+            Import CSV
+          </button>
           <button
             onClick={onMarkdownView}
             className="text-sm px-3 py-1.5 bg-slate-500 text-white rounded-md hover:bg-slate-600"

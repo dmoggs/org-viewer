@@ -1,9 +1,13 @@
-import type { ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import type { Portfolio, Person, Group, Division } from '../types/org';
 import { ROLE_LABELS } from '../types/org';
+import { exportTreeToPdf } from '../utils/exportPdf';
+
+type ViewMode = 'management' | 'teams';
 
 interface OrgTreeViewProps {
   portfolio: Portfolio;
+  allPortfolios: Portfolio[];
   onClose: () => void;
 }
 
@@ -84,26 +88,55 @@ const VENDOR_PALETTE = [
 /** Colour used when a person has no vendor (employees). */
 const NO_VENDOR_COLOUR = 'bg-gray-900';
 
-function collectVendors(portfolio: Portfolio): string[] {
+/**
+ * Simple deterministic string hash → palette index.
+ */
+function vendorHash(vendor: string): number {
+  let h = 0;
+  for (let i = 0; i < vendor.length; i++) {
+    h = ((h << 5) - h + vendor.charCodeAt(i)) | 0; // hash * 31 + char
+  }
+  return ((h % VENDOR_PALETTE.length) + VENDOR_PALETTE.length) % VENDOR_PALETTE.length;
+}
+
+function collectVendorsFromAll(portfolios: Portfolio[]): string[] {
   const vendors = new Set<string>();
   const scan = (p: Person) => { if (p.vendor) vendors.add(p.vendor); };
-  portfolio.headOfEngineering && scan(portfolio.headOfEngineering);
-  portfolio.principalEngineers.forEach(scan);
-  const scanGroup = (g: Group) => {
-    g.manager && scan(g.manager);
-    g.staffEngineers.forEach(scan);
-    g.teams.forEach(t => t.members.forEach(scan));
-  };
-  portfolio.divisions?.forEach(d => d.groups.forEach(scanGroup));
-  portfolio.groups.forEach(scanGroup);
+  for (const portfolio of portfolios) {
+    portfolio.headOfEngineering && scan(portfolio.headOfEngineering);
+    portfolio.principalEngineers.forEach(scan);
+    const scanGroup = (g: Group) => {
+      g.manager && scan(g.manager);
+      g.staffEngineers.forEach(scan);
+      g.teams.forEach(t => t.members.forEach(scan));
+    };
+    portfolio.divisions?.forEach(d => d.groups.forEach(scanGroup));
+    portfolio.groups.forEach(scanGroup);
+  }
   return Array.from(vendors).sort();
 }
 
-function buildVendorColourMap(portfolio: Portfolio): Map<string | undefined, string> {
+/**
+ * Build a vendor→colour map using a deterministic hash per vendor name.
+ * On collision the later vendor (alphabetically) probes forward to the
+ * next unused palette slot, so every vendor gets a unique colour (up to
+ * the palette size).
+ */
+export function buildVendorColourMap(allPortfolios: Portfolio[]): Map<string | undefined, string> {
+  const vendors = collectVendorsFromAll(allPortfolios);
+  const usedSlots = new Set<number>();
   const map = new Map<string | undefined, string>();
-  collectVendors(portfolio).forEach((v, i) => {
-    map.set(v, VENDOR_PALETTE[i % VENDOR_PALETTE.length]);
-  });
+
+  for (const v of vendors) {
+    let slot = vendorHash(v);
+    // Probe forward on collision
+    while (usedSlots.has(slot)) {
+      slot = (slot + 1) % VENDOR_PALETTE.length;
+    }
+    usedSlots.add(slot);
+    map.set(v, VENDOR_PALETTE[slot]);
+  }
+
   map.set(undefined, NO_VENDOR_COLOUR);
   return map;
 }
@@ -336,11 +369,154 @@ function DivisionSubTree({ division, vcm }: { division: Division; vcm: Map<strin
   return <TreeNode card={divCard} children={<TreeChildren nodes={groupNodes} />} />;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── TEAM VIEW ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Compact team card that lists all members inline — designed for easy
+ * screenshot / paste-into-slides use-cases.  Fixed width per team keeps
+ * columns aligned when multiple teams sit side-by-side.
+ */
+function TeamCard({ team, vcm }: { team: { name: string; members: Person[] }; vcm: Map<string | undefined, string> }) {
+  return (
+    <div className="bg-white border border-green-200 rounded-lg shadow-sm w-44 flex-shrink-0 text-left select-none">
+      {/* Team header */}
+      <div className="bg-green-50 border-b border-green-200 px-2.5 py-1.5 rounded-t-lg">
+        <div className="text-[11px] font-semibold text-green-800 leading-tight truncate" title={team.name}>
+          {team.name}
+        </div>
+        <div className="text-[9px] text-green-500">{team.members.length} member{team.members.length !== 1 ? 's' : ''}</div>
+      </div>
+      {/* Member list */}
+      <div className="px-2.5 py-1.5 space-y-0.5">
+        {team.members.map((m) => {
+          const colour = vcm.get(m.vendor) ?? NO_VENDOR_COLOUR;
+          return (
+            <div key={m.id} className="flex items-center gap-1.5 text-[10px] leading-tight">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${colour}`} />
+              <span className="text-gray-700 truncate" title={m.name ?? 'Unnamed'}>
+                {m.name ?? <span className="italic text-gray-400">Unnamed</span>}
+              </span>
+              {(m.role === 'senior_engineer' || m.role === 'staff_engineer') && (
+                <span className="ml-auto flex-shrink-0 text-[9px] font-bold text-indigo-500 leading-none">S</span>
+              )}
+            </div>
+          );
+        })}
+        {team.members.length === 0 && (
+          <div className="text-[10px] italic text-gray-400">No members</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Group section for Team View — shows group name as a header then its teams
+ * as compact cards in a horizontal flex row.
+ */
+function TeamViewGroup({ group, vcm }: { group: Group; vcm: Map<string | undefined, string> }) {
+  // Collect all teams; also include group-level staff engineers as a pseudo-team
+  // so they appear in this view too.
+  const allTeams: { name: string; members: Person[] }[] = [];
+
+  if (group.staffEngineers.length > 0) {
+    allTeams.push({ name: 'Staff Engineers', members: group.staffEngineers });
+  }
+  for (const t of group.teams) {
+    allTeams.push(t);
+  }
+
+  if (allTeams.length === 0) return null;
+
+  const managerLabel = group.manager
+    ? group.manager.name ?? 'EM'
+    : group.managedBy
+      ? `Managed by ${group.managedBy}`
+      : undefined;
+
+  return (
+    <div className="flex flex-col items-center">
+      <LabelCard
+        label={group.name}
+        colour="border-blue-300 bg-blue-50 text-blue-800"
+        subtitle={managerLabel}
+      />
+      <VStub />
+      <div className="flex items-start gap-3 flex-wrap justify-center">
+        {allTeams.map((t, i) => (
+          <TeamCard key={i} team={t} vcm={vcm} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Division section for Team View — division label → its groups.
+ */
+function TeamViewDivision({ division, vcm }: { division: Division; vcm: Map<string | undefined, string> }) {
+  const groupNodes = division.groups
+    .filter(g => g.teams.length > 0 || g.staffEngineers.length > 0)
+    .map((g, i) => <TeamViewGroup key={i} group={g} vcm={vcm} />);
+  if (groupNodes.length === 0) return null;
+
+  return (
+    <TreeNode
+      card={
+        <LabelCard
+          label={division.name}
+          colour="border-purple-300 bg-purple-50 text-purple-800"
+          subtitle={`${division.groups.length} group${division.groups.length !== 1 ? 's' : ''}`}
+        />
+      }
+    >
+      <TreeChildren nodes={groupNodes} />
+    </TreeNode>
+  );
+}
+
+/**
+ * Full Team View tree for a portfolio.
+ */
+export function TeamViewTree({ portfolio, vcm }: { portfolio: Portfolio; vcm: Map<string | undefined, string> }) {
+  const hoeName = portfolio.headOfEngineering?.name;
+  const rootLabel = portfolio.name;
+  const rootSubtitle = hoeName ? `HoE: ${hoeName}` : undefined;
+
+  const level2Nodes: ReactNode[] = [];
+
+  // Divisions
+  for (let i = 0; i < (portfolio.divisions?.length ?? 0); i++) {
+    const node = <TeamViewDivision key={`div-${i}`} division={portfolio.divisions![i]} vcm={vcm} />;
+    level2Nodes.push(node);
+  }
+  // Direct groups
+  for (let i = 0; i < portfolio.groups.length; i++) {
+    const node = <TeamViewGroup key={`grp-${i}`} group={portfolio.groups[i]} vcm={vcm} />;
+    level2Nodes.push(node);
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <LabelCard
+        label={rootLabel}
+        colour="border-indigo-400 bg-indigo-50 text-indigo-800"
+        subtitle={rootSubtitle}
+      />
+      {level2Nodes.length > 0 && <TreeChildren nodes={level2Nodes} />}
+    </div>
+  );
+}
+
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function OrgTreeView({ portfolio, onClose }: OrgTreeViewProps) {
+/**
+ * Standalone Management View tree for a portfolio.
+ */
+export function ManagementTree({ portfolio, vcm }: { portfolio: Portfolio; vcm: Map<string | undefined, string> }) {
   const totalHeadcount = portfolioHeadcount(portfolio);
-  const vcm = buildVendorColourMap(portfolio);
   const vc = (p: Person) => vcm.get(p.vendor) ?? NO_VENDOR_COLOUR;
 
   const rootCard = portfolio.headOfEngineering ? (
@@ -359,33 +535,38 @@ export function OrgTreeView({ portfolio, onClose }: OrgTreeViewProps) {
   );
 
   const level2Nodes: ReactNode[] = [];
-
-  // Divisions
   for (let i = 0; i < (portfolio.divisions?.length ?? 0); i++) {
     level2Nodes.push(<DivisionSubTree key={`div-${i}`} division={portfolio.divisions![i]} vcm={vcm} />);
   }
-  // Direct groups
   for (let i = 0; i < portfolio.groups.length; i++) {
     level2Nodes.push(<GroupSubTree key={`grp-${i}`} group={portfolio.groups[i]} vcm={vcm} />);
   }
 
-  // PEs branch off the vertical connector between HoE and the reporting tree.
-  // They sit in a horizontal row to the right, connected by a dashed line.
-  // The solid vertical line runs: HoE → PE branch point → reporting tree.
-  const hasPEs   = portfolio.principalEngineers.length > 0;
-  const hasMain  = level2Nodes.length > 0;
+  const hasPEs = portfolio.principalEngineers.length > 0;
+  const hasMain = level2Nodes.length > 0;
 
-  const treeChildren: ReactNode = hasMain ? <TreeChildren nodes={level2Nodes} /> : undefined;
-
-  const rootRow = (
+  return (
     <div className="flex flex-col items-center">
       {rootCard}
-      {hasPEs && (
-        <PrincipalEngineersBranch people={portfolio.principalEngineers} vcm={vcm} />
-      )}
-      {treeChildren}
+      {hasPEs && <PrincipalEngineersBranch people={portfolio.principalEngineers} vcm={vcm} />}
+      {hasMain && <TreeChildren nodes={level2Nodes} />}
     </div>
   );
+}
+
+export function OrgTreeView({ portfolio, allPortfolios, onClose }: OrgTreeViewProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('management');
+  const [exporting, setExporting] = useState(false);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const vcm = buildVendorColourMap(allPortfolios);
+  const portfolioVendors = new Set(collectVendorsFromAll([portfolio]));
+
+  const managementTree = <ManagementTree portfolio={portfolio} vcm={vcm} />;
+
+  // ── Subtitle ──────────────────────────────────────────────────────────────
+  const subtitle = viewMode === 'management'
+    ? 'Organisation Tree · Management View'
+    : 'Organisation Tree · Team View';
 
   return (
     <div
@@ -395,23 +576,74 @@ export function OrgTreeView({ portfolio, onClose }: OrgTreeViewProps) {
       <div className="bg-white rounded-2xl shadow-2xl w-auto max-w-[95vw] max-h-[95vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl z-10">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800">{portfolio.name}</h2>
-            <p className="text-sm text-gray-500">Organisation Tree · Management View</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">{portfolio.name}</h2>
+              <p className="text-sm text-gray-500">{subtitle}</p>
+            </div>
+            {/* View mode toggle */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden ml-4">
+              <button
+                onClick={() => setViewMode('management')}
+                className={`px-3 py-1 text-xs font-medium transition-colors ${
+                  viewMode === 'management'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Management
+              </button>
+              <button
+                onClick={() => setViewMode('teams')}
+                className={`px-3 py-1 text-xs font-medium transition-colors ${
+                  viewMode === 'teams'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Teams
+              </button>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-            aria-label="Close"
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                if (!treeRef.current || exporting) return;
+                setExporting(true);
+                try {
+                  await exportTreeToPdf({
+                    element: treeRef.current,
+                    portfolioName: portfolio.name,
+                    viewLabel: viewMode === 'management' ? 'Management' : 'Teams',
+                  });
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Export current view as landscape PDF"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {exporting ? 'Exporting…' : 'PDF'}
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
-        {/* Legend — vendor colour key */}
+        {/* Legend — vendor colour key (only vendors present in this portfolio) */}
         <div className="flex items-center gap-4 px-6 py-2 border-b border-gray-100 flex-wrap">
           <span className="text-[10px] font-medium text-gray-500 mr-1">Vendor:</span>
           {Array.from(vcm.entries())
+            .filter(([vendor]) => vendor === undefined || portfolioVendors.has(vendor))
             .sort(([a], [b]) => {
               if (a === undefined) return 1;   // "Employee" always last
               if (b === undefined) return -1;
@@ -423,13 +655,15 @@ export function OrgTreeView({ portfolio, onClose }: OrgTreeViewProps) {
                 {vendor ?? 'Employee'}
               </span>
             ))}
-          <span className="ml-auto text-[10px] italic text-gray-400">Span = total headcount in area</span>
+          {viewMode === 'management' && (
+            <span className="ml-auto text-[10px] italic text-gray-400">Span = total headcount in area</span>
+          )}
         </div>
 
         {/* Tree */}
         <div className="p-8 overflow-auto flex-1 min-h-0">
-          <div className="min-w-max">
-            {rootRow}
+          <div ref={treeRef} className="min-w-max">
+            {viewMode === 'management' ? managementTree : <TeamViewTree portfolio={portfolio} vcm={vcm} />}
           </div>
         </div>
       </div>
