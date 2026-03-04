@@ -209,6 +209,7 @@ function mapRole(csvRole: string): Role | null {
   if (r === 'engineering manager') return 'engineering_manager';
   if (r === 'head of engineering') return 'head_of_engineering';
   if (r === 'principal engineer') return 'principal_engineer';
+  if (r === 'senior head of engineering') return 'senior_head_of_engineering';
   return null;
 }
 

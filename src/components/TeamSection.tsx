@@ -23,7 +23,7 @@ export function TeamSection({
   const iconSize = 'sm' as const;
 
   return (
-    <div className={`border border-gray-200 rounded-md ${compact ? 'p-1.5' : 'p-3'} bg-gray-50`}>
+    <div data-team-id={team.id} className={`border border-gray-200 rounded-md ${compact ? 'p-1.5' : 'p-3'} bg-gray-50`}>
       <div className={`flex items-center justify-between ${compact ? 'mb-1' : 'mb-2'}`}>
         <h4 className={`font-medium text-gray-700 ${compact ? 'text-xs' : 'text-sm'}`}>{team.name}</h4>
         <div className="flex items-center gap-0.5">

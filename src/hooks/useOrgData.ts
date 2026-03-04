@@ -97,6 +97,15 @@ export function useOrgData() {
     }
   }, [data, loading]);
 
+  // Org owner operations
+  const setOrgOwner = useCallback((person: Person) => {
+    setData(prev => ({ ...prev, orgOwner: person }));
+  }, []);
+
+  const removeOrgOwner = useCallback(() => {
+    setData(prev => ({ ...prev, orgOwner: undefined }));
+  }, []);
+
   // Portfolio operations
   const addPortfolio = useCallback((name: string): Portfolio => {
     const portfolio: Portfolio = {
@@ -470,6 +479,9 @@ export function useOrgData() {
   return {
     data,
     loading,
+    // Org owner
+    setOrgOwner,
+    removeOrgOwner,
     // Portfolio
     addPortfolio,
     updatePortfolio,

@@ -36,6 +36,8 @@ interface PortfolioViewProps {
   onEditTeamMember: (groupId: string, teamId: string, person: Person, divisionId?: string) => void;
   onDeleteTeamMember: (groupId: string, teamId: string, personId: string, divisionId?: string) => void;
   onMoveGroupToDivision: (groupId: string, fromDivisionId: string, toDivisionId: string) => void;
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 export function PortfolioView({
@@ -68,8 +70,12 @@ export function PortfolioView({
   onEditTeamMember,
   onDeleteTeamMember,
   onMoveGroupToDivision,
+  isCollapsed: isCollapsedProp,
+  onToggleCollapsed,
 }: PortfolioViewProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [localCollapsed, setLocalCollapsed] = useState(false);
+  const isCollapsed = isCollapsedProp !== undefined ? isCollapsedProp : localCollapsed;
+  const toggleCollapsed = onToggleCollapsed ?? (() => setLocalCollapsed(c => !c));
   // Track which group is being dragged: { groupId, fromDivisionId }
   const [drag, setDrag] = useState<{ groupId: string; fromDivisionId: string } | null>(null);
   const hasDivisions = portfolio.divisions && portfolio.divisions.length > 0;
@@ -88,7 +94,7 @@ export function PortfolioView({
       <div className="flex items-center justify-between p-4 bg-indigo-100 border-b border-indigo-200">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={toggleCollapsed}
             className="text-indigo-500 hover:text-indigo-700"
           >
             {isCollapsed ? '▶' : '▼'}
@@ -152,7 +158,7 @@ export function PortfolioView({
       {!isCollapsed && (
         <div className="p-4 space-y-4">
           {/* Portfolio Leadership */}
-          <div className="flex items-start gap-8 p-3 bg-white rounded-lg border border-indigo-200">
+          <div data-leadership-id={`leadership-${portfolio.id}`} className="flex items-start gap-8 p-3 bg-white rounded-lg border border-indigo-200">
             {/* Head of Engineering */}
             <div>
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">

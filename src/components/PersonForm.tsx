@@ -7,6 +7,7 @@ interface PersonFormProps {
   allowedRoles?: Role[];
   onSave: (person: Omit<Person, 'id'>, quantity?: number) => void;
   onCancel: () => void;
+  onDelete?: () => void;
   title: string;
   allowBulkAdd?: boolean;
 }
@@ -23,7 +24,7 @@ const ALL_ROLES: Role[] = [
 const ALL_LOCATIONS: Location[] = ['onshore', 'nearshore', 'offshore'];
 const ALL_TYPES: EmployeeType[] = ['employee', 'contractor'];
 
-export function PersonForm({ person, allowedRoles = ALL_ROLES, onSave, onCancel, title, allowBulkAdd = false }: PersonFormProps) {
+export function PersonForm({ person, allowedRoles = ALL_ROLES, onSave, onCancel, onDelete, title, allowBulkAdd = false }: PersonFormProps) {
   const [name, setName] = useState(person?.name || '');
   const [role, setRole] = useState<Role>(person?.role || allowedRoles[0]);
   const [type, setType] = useState<EmployeeType>(person?.type || 'employee');
@@ -178,20 +179,37 @@ export function PersonForm({ person, allowedRoles = ALL_ROLES, onSave, onCancel,
           )}
 
           {/* Buttons */}
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              Save
-            </button>
+          <div className="flex justify-between pt-4">
+            <div>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Remove this person?')) {
+                      onDelete();
+                    }
+                  }}
+                  className="px-4 py-2 text-red-600 bg-red-50 rounded-md hover:bg-red-100"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </form>
       </div>

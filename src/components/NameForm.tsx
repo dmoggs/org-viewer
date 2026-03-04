@@ -1,14 +1,16 @@
 import { useState } from 'react';
+import { Person, ROLE_LABELS, LOCATION_LABELS } from '../types/org';
 
 interface NameFormProps {
   title: string;
   label: string;
   initialValue?: string;
+  members?: Person[];
   onSave: (name: string) => void;
   onCancel: () => void;
 }
 
-export function NameForm({ title, label, initialValue = '', onSave, onCancel }: NameFormProps) {
+export function NameForm({ title, label, initialValue = '', members, onSave, onCancel }: NameFormProps) {
   const [name, setName] = useState(initialValue);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,6 +41,24 @@ export function NameForm({ title, label, initialValue = '', onSave, onCancel }: 
               autoFocus
             />
           </div>
+
+          {members && members.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Team Members</label>
+              <div className="border border-gray-200 rounded-md divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                {members.map((m) => (
+                  <div key={m.id} className="px-3 py-2 text-sm flex justify-between items-center">
+                    <span className="font-medium text-gray-900">{m.name || 'Unnamed'}</span>
+                    <span className="text-gray-500 text-xs">
+                      {ROLE_LABELS[m.role]}
+                      {m.vendor ? ` · ${m.vendor}` : ''}
+                      {m.location ? ` · ${LOCATION_LABELS[m.location]}` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <button

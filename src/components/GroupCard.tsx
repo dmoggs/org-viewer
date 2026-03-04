@@ -47,7 +47,7 @@ export function GroupCard({
     group.teams.reduce((sum, t) => sum + t.members.length, 0);
 
   return (
-    <div className={`border ${compact ? 'border-gray-200' : 'border-2 border-gray-300'} rounded-lg bg-white overflow-hidden`}>
+    <div data-group-id={group.id} className={`border ${compact ? 'border-gray-200' : 'border-2 border-gray-300'} rounded-lg bg-white overflow-hidden`}>
       {/* Header */}
       <div className={`flex items-center justify-between ${compact ? 'px-2 py-1.5' : 'p-3'} bg-gray-100 border-b border-gray-200`}>
         <div className="flex items-center gap-2">

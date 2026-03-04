@@ -149,6 +149,9 @@ export function SummaryPanel({ stats, onshoreTargetPercentage = 50 }: SummaryPan
         <div>
           <div className="text-sm text-gray-600 mb-1.5">By Role</div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-500">
+            {stats.byRole.senior_head_of_engineering > 0 && (
+              <div>SHoE: {stats.byRole.senior_head_of_engineering}</div>
+            )}
             {stats.byRole.head_of_engineering > 0 && (
               <div>HoE: {stats.byRole.head_of_engineering}</div>
             )}

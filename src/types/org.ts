@@ -1,7 +1,7 @@
 export type Location = 'onshore' | 'nearshore' | 'offshore';
 export type EmployeeType = 'employee' | 'contractor';
 export type EngineerLevel = 'engineer' | 'senior_engineer' | 'staff_engineer';
-export type LeaderRole = 'engineering_manager' | 'staff_engineer' | 'head_of_engineering' | 'principal_engineer';
+export type LeaderRole = 'engineering_manager' | 'staff_engineer' | 'head_of_engineering' | 'principal_engineer' | 'senior_head_of_engineering';
 export type Role = EngineerLevel | LeaderRole;
 
 export interface Person {
@@ -45,6 +45,7 @@ export interface Portfolio {
 }
 
 export interface OrgData {
+  orgOwner?: Person;
   portfolios: Portfolio[];
 }
 
@@ -55,6 +56,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   engineering_manager: 'Engineering Manager',
   head_of_engineering: 'Head of Engineering',
   principal_engineer: 'Principal Engineer',
+  senior_head_of_engineering: 'Senior Head of Engineering',
 };
 
 export const LOCATION_LABELS: Record<Location, string> = {

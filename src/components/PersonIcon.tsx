@@ -20,6 +20,7 @@ function getShape(role: Role): 'circle' | 'square' | 'diamond' {
     case 'staff_engineer':
     case 'head_of_engineering':
     case 'principal_engineer':
+    case 'senior_head_of_engineering':
       return 'diamond';
   }
 }
@@ -115,6 +116,7 @@ export function PersonIcon({ person, size = 'md', showTooltip = true, onClick }:
   return (
     <div
       className={`inline-block ${onClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+      data-person-id={person.id}
       title={showTooltip ? tooltipText : undefined}
       onClick={onClick}
     >

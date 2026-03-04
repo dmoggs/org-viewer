@@ -12,7 +12,7 @@ export function PersonInline({ person, size = 'sm', onClick, onRemove }: PersonI
   const textClass = size === 'sm' ? 'text-xs' : 'text-sm';
 
   return (
-    <div className="inline-flex items-center gap-1 group relative">
+    <div className="inline-flex items-center gap-1 group relative" data-person-id={person.id}>
       <PersonIcon person={person} size={size} showTooltip={false} />
       <span
         className={`${textClass} text-gray-700 ${onClick ? 'cursor-pointer hover:text-gray-900' : ''}`}

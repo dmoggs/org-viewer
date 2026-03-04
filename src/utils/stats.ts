@@ -26,6 +26,11 @@ function getPeopleFromGroup(group: { manager?: Person; staffEngineers: Person[];
 function getAllPeople(data: OrgData): Person[] {
   const people: Person[] = [];
 
+  // Include org owner if set
+  if (data.orgOwner) {
+    people.push(data.orgOwner);
+  }
+
   for (const portfolio of data.portfolios) {
     if (portfolio.headOfEngineering) {
       people.push(portfolio.headOfEngineering);
@@ -56,6 +61,7 @@ const SENIOR_PLUS_ROLES: Role[] = [
   'engineering_manager',
   'head_of_engineering',
   'principal_engineer',
+  'senior_head_of_engineering',
 ];
 
 export function calculatePortfolioStats(portfolio: Portfolio): OrgStats {
@@ -73,6 +79,7 @@ export function calculateStats(data: OrgData): OrgStats {
     engineering_manager: 0,
     head_of_engineering: 0,
     principal_engineer: 0,
+    senior_head_of_engineering: 0,
   };
 
   const byLocation: Record<Location, number> = {
