@@ -214,25 +214,40 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-bold text-gray-900">Org Viewer</h1>
+          {/* Left: Org Owner & Mgmt Org */}
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setModal({ type: 'orgOwner', person: data.orgOwner })}
               className="group flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
               title={data.orgOwner ? 'Edit org owner' : 'Set org owner'}
             >
-              <svg className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+              <span className={data.orgOwner?.name ? 'font-medium text-gray-800' : 'text-gray-400 italic'}>
+                {data.orgOwner?.name || 'Set Org Owner'}
+              </span>
+              <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
               </svg>
-              <span className={data.orgOwner?.name ? 'text-gray-700' : 'text-gray-400 italic'}>
-                {data.orgOwner?.name || 'Enter Org Owner'}
-              </span>
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => setShowOverviewTree(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+              title="View management organisation overview"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" />
+              </svg>
+              Mgmt Org
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Search */}
+
+          {/* Center: Search */}
+          <div className="flex-1 flex justify-center px-4 max-w-md mx-auto">
             <SearchBar
               data={data}
               onSelectResult={(portfolioId, target, type) => {
@@ -249,6 +264,10 @@ function App() {
                 }
               }}
             />
+          </div>
+
+          {/* Right: View & Data menus */}
+          <div className="flex items-center gap-2">
             {/* View menu */}
             <div ref={viewMenuRef} className="relative">
               <button
@@ -269,7 +288,7 @@ function App() {
                 </svg>
               </button>
               {viewMenuOpen && (
-                <div className="absolute right-0 mt-1 w-44 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
                   <button
                     onClick={() => { setViewMode('org'); setViewMenuOpen(false); }}
                     className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-left ${
@@ -302,44 +321,51 @@ function App() {
                       </svg>
                     )}
                   </button>
+                  <div className="border-t border-gray-200 my-1" />
+                  {/* Stats panel toggle */}
+                  <button
+                    onClick={() => { setSidebarOpen(o => !o); setViewMenuOpen(false); }}
+                    className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-left ${
+                      sidebarOpen ? 'text-indigo-700 bg-indigo-50' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <svg className={`w-4 h-4 ${sidebarOpen ? 'text-indigo-500' : 'text-gray-400'}`} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="1" y="1" width="12" height="12" rx="1.5" />
+                      <line x1="5" y1="1" x2="5" y2="13" />
+                    </svg>
+                    Stats Panel
+                    {sidebarOpen && (
+                      <svg className="w-4 h-4 ml-auto text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </button>
+                  {viewMode === 'org' && data.portfolios.length > 0 && (
+                    <>
+                      <div className="border-t border-gray-200 my-1" />
+                      <button
+                        onClick={() => { expandAll(); setViewMenuOpen(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                        </svg>
+                        Expand All
+                      </button>
+                      <button
+                        onClick={() => { collapseAll(); setViewMenuOpen(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L3.75 3.75M9 9h-4.5M9 9v-4.5M9 15l-5.25 5.25M9 15h-4.5M9 15v4.5M15 9l5.25-5.25M15 9h4.5M15 9V4.5M15 15l5.25 5.25M15 15h4.5M15 15v4.5" />
+                        </svg>
+                        Collapse All
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
-            {/* Stats toggle */}
-            <button
-              onClick={() => setSidebarOpen(o => !o)}
-              title={sidebarOpen ? 'Hide stats panel' : 'Show stats panel'}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                sidebarOpen
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                  : 'border-gray-300 bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="1" y="1" width="12" height="12" rx="1.5" />
-                <line x1="5" y1="1" x2="5" y2="13" />
-              </svg>
-              Stats
-            </button>
-            {/* Expand / Collapse all */}
-            {viewMode === 'org' && data.portfolios.length > 0 && (
-              <div className="flex border border-gray-200 rounded-md overflow-hidden">
-                <button
-                  onClick={expandAll}
-                  title="Expand all portfolios"
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-                >
-                  Expand all
-                </button>
-                <button
-                  onClick={collapseAll}
-                  title="Collapse all portfolios"
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 border-l border-gray-200"
-                >
-                  Collapse all
-                </button>
-              </div>
-            )}
             {/* Data menu */}
             <div ref={dataMenuRef} className="relative">
               <button
@@ -401,22 +427,19 @@ function App() {
                     </svg>
                     Load Test Data
                   </button>
+                  <div className="border-t border-gray-100 my-1" />
+                  <button
+                    onClick={() => { setModal({ type: 'portfolio', mode: 'add' }); setDataMenuOpen(false); }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left"
+                  >
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add Portfolio
+                  </button>
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setShowOverviewTree(true)}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-              title="View organisation overview tree"
-            >
-              Org Tree
-            </button>
-            <button
-              onClick={() => setModal({ type: 'portfolio', mode: 'add' })}
-              className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              + Portfolio
-            </button>
           </div>
         </div>
       </header>
@@ -454,7 +477,8 @@ function App() {
               </button>
             </div>
           ) : (
-            data.portfolios.map(portfolio => (
+            <>
+            {data.portfolios.map(portfolio => (
               <PortfolioView
                 key={portfolio.id}
                 portfolio={portfolio}
@@ -540,7 +564,19 @@ function App() {
                   }
                 }}
               />
-            ))
+            ))}
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={() => setModal({ type: 'portfolio', mode: 'add' })}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Portfolio
+              </button>
+            </div>
+            </>
           )}
         </main>
       </div>
