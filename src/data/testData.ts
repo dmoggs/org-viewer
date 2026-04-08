@@ -1,7 +1,35 @@
-import type { OrgData, Portfolio, Group, Team, Person, Role, Location, EmployeeType } from '../types/org';
+import type { OrgData, Portfolio, Group, Team, Person, Role, Location, EmployeeType, Division } from '../types/org';
 
 function id(): string {
   return crypto.randomUUID();
+}
+
+const NAMES_POOL = [
+  'Aiko Tanaka', 'Rahul Mehta', 'Sofia Andersson', 'Chen Wei', 'Amara Osei',
+  'Diego Torres', 'Fatimah Ibrahim', 'Lukas Mueller', 'Yuna Kim', 'Arjun Patel',
+  'Nadia Kowalski', 'Kwame Asante', 'Maria Santos', 'Hiroshi Yamamoto', 'Leila Nazari',
+  'Patrick Okonkwo', 'Elena Petrov', 'Sanjay Kumar', 'Isabel Ferreira', 'Mohammed Al-Rashid',
+  'Ingrid Berg', 'Takeshi Nakamura', 'Aisha Diallo', 'Raj Krishnamurthy', 'Valentina Russo',
+  'Chidi Obi', 'Mei Lin', 'Fernando Castillo', 'Yuki Suzuki', 'Aditi Sharma',
+  'Alexei Volkov', 'Zara Ahmed', 'Kweku Mensah', 'Priya Nair', 'Stefan Johansson',
+  'Lena Fischer', 'Omar Hassan', 'Yuki Watanabe', 'Amina Bah', 'Lucas Oliveira',
+  'Hana Park', 'Viktor Petrov', 'Fatima Al-Zahra', 'Ravi Gupta', 'Monika Nowak',
+  'Temi Adeyemi', 'Ling Zhao', 'Sebastien Laurent', 'Nia Williams', 'Tariq Hassan',
+  'Chloe Martin', 'Akira Sato', 'Keisha Johnson', 'Bjarni Sigurdsson', 'Yasmin Khalil',
+  'Emre Yilmaz', 'Nkechi Eze', 'Dmitri Sokolov', 'Larissa Costa', 'Jamal Bakr',
+];
+
+const OFFSHORE_VENDORS = ['TCS', 'Infosys', 'Wipro', 'HCL', 'Cognizant'];
+const NEARSHORE_VENDORS = ['GlobalLogic', 'EPAM', 'Endava', 'Nearshore Partners'];
+
+let nameIndex = 0;
+
+function nextName(): string {
+  return NAMES_POOL[nameIndex++ % NAMES_POOL.length];
+}
+
+function randomFrom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function makePerson(
@@ -9,8 +37,11 @@ function makePerson(
   type: EmployeeType,
   location: Location,
   name?: string,
+  vendor?: string,
 ): Person {
-  return { id: id(), name, role, type, location };
+  const person: Person = { id: id(), name, role, type, location };
+  if (vendor) person.vendor = vendor;
+  return person;
 }
 
 function makeLeader(role: Role, name: string): Person {
@@ -27,21 +58,23 @@ function makeMembers(count: number): Person[] {
   for (let i = 0; i < count; i++) {
     const rand = Math.random();
 
-    // Determine location/type
     let type: EmployeeType;
     let location: Location;
+    let vendor: string | undefined;
+
     if (rand < 0.12) {
       type = 'employee';
       location = 'onshore';
     } else if (rand < 0.30) {
       type = 'contractor';
       location = 'nearshore';
+      vendor = randomFrom(NEARSHORE_VENDORS);
     } else {
       type = 'contractor';
       location = 'offshore';
+      vendor = randomFrom(OFFSHORE_VENDORS);
     }
 
-    // Determine role
     const roleRand = Math.random();
     let role: Role;
     if (roleRand < 0.60) {
@@ -52,7 +85,7 @@ function makeMembers(count: number): Person[] {
       role = 'staff_engineer';
     }
 
-    members.push(makePerson(role, type, location));
+    members.push(makePerson(role, type, location, nextName(), vendor));
   }
   return members;
 }
@@ -63,24 +96,31 @@ function makeTeam(name: string, memberCount: number): Team {
 
 function makeGroup(
   name: string,
-  managerName: string,
+  managerName: string | null,
   teams: Team[],
   staffCount = 0,
+  managedBy?: string,
 ): Group {
   const staffEngineers: Person[] = [];
   for (let i = 0; i < staffCount; i++) {
-    staffEngineers.push(makeLeader('staff_engineer', `${name} Staff ${i + 1}`));
+    staffEngineers.push(makeLeader('staff_engineer', nextName()));
   }
-  return {
-    id: id(),
-    name,
-    manager: makeLeader('engineering_manager', managerName),
-    staffEngineers,
-    teams,
-  };
+  const group: Group = { id: id(), name, staffEngineers, teams };
+  if (managerName) {
+    group.manager = makeLeader('engineering_manager', managerName);
+  } else if (managedBy) {
+    group.managedBy = managedBy;
+  }
+  return group;
+}
+
+function makeDivision(name: string, groups: Group[]): Division {
+  return { id: id(), name, groups };
 }
 
 export function generateTestData(): OrgData {
+  nameIndex = 0;
+
   const supplyChain: Portfolio = {
     id: id(),
     name: 'Supply Chain & Logistics',
@@ -90,18 +130,33 @@ export function generateTestData(): OrgData {
       makeLeader('principal_engineer', 'James Rodriguez'),
       makeLeader('principal_engineer', 'Priya Sharma'),
     ],
-    groups: [
-      makeGroup('Warehouse Ops', 'Mike Thompson', [
-        makeTeam('Inventory', 8),
-        makeTeam('Fulfillment', 6),
+    divisions: [
+      makeDivision('Warehouse', [
+        makeGroup('Warehouse Ops', 'Mike Thompson', [
+          makeTeam('Inventory', 8),
+          makeTeam('Receiving', 5),
+        ]),
+        makeGroup('Fulfillment', null, [
+          makeTeam('Pick & Pack', 7),
+          makeTeam('Dispatch', 6),
+        ], 0, 'TPM'),
       ]),
-      makeGroup('Transportation', 'Lisa Park', [
-        makeTeam('Routing', 7),
-        makeTeam('Carrier Mgmt', 5),
-      ], 1),
+      makeDivision('Transportation', [
+        makeGroup('Routing', 'Lisa Park', [
+          makeTeam('Route Optimization', 7),
+          makeTeam('Last Mile', 5),
+        ], 1),
+        makeGroup('Carrier Mgmt', null, [
+          makeTeam('Carrier Onboarding', 4),
+          makeTeam('Carrier Performance', 5),
+        ], 0, 'TPM'),
+      ]),
+    ],
+    groups: [
       makeGroup('Logistics Platform', 'David Kim', [
         makeTeam('Platform Core', 10),
-      ]),
+        makeTeam('API Gateway', 6),
+      ], 1),
     ],
   };
 
@@ -122,6 +177,10 @@ export function generateTestData(): OrgData {
         makeTeam('Allocation', 8),
         makeTeam('Replenishment', 4),
       ]),
+      makeGroup('Pricing', null, [
+        makeTeam('Pricing Engine', 7),
+        makeTeam('Promotions', 5),
+      ], 0, 'TPM'),
     ],
   };
 
@@ -137,6 +196,7 @@ export function generateTestData(): OrgData {
     groups: [
       makeGroup('Product Design', 'Jordan Lee', [
         makeTeam('CAD Platform', 7),
+        makeTeam('3D Visualization', 4),
       ], 1),
       makeGroup('Procurement', 'Sophia Garcia', [
         makeTeam('Sourcing', 6),
@@ -150,6 +210,7 @@ export function generateTestData(): OrgData {
   };
 
   return {
+    orgOwner: makeLeader('senior_head_of_engineering', 'Alexandra Kozlov'),
     portfolios: [supplyChain, commercialPlanning, designBuyMake],
   };
 }

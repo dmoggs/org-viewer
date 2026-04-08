@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Person, Role, EmployeeType, Location } from '../types/org';
-import { ROLE_LABELS, LOCATION_LABELS, TYPE_LABELS } from '../types/org';
+import { ROLE_LABELS, LOCATION_LABELS, TYPE_LABELS, LEADERSHIP_ROLES } from '../types/org';
 
 interface PersonFormProps {
   person?: Person;
@@ -31,8 +31,11 @@ export function PersonForm({ person, allowedRoles = ALL_ROLES, onSave, onCancel,
   const [vendor, setVendor] = useState(person?.vendor || '');
   const [location, setLocation] = useState<Location | ''>(person ? (person.type === 'employee' ? 'onshore' : (person.location || '')) : 'onshore');
   const [quantity, setQuantity] = useState(1);
+  const [isVacancy, setIsVacancy] = useState(person?.isVacancy || false);
+  const [vacancyApproved, setVacancyApproved] = useState(person?.vacancyApproved || false);
 
   const isContractor = type === 'contractor';
+  const isLeadershipRole = LEADERSHIP_ROLES.includes(role);
 
   // Employees are always onshore; reset contractor-specific fields when switching to employee
   useEffect(() => {
@@ -61,6 +64,8 @@ export function PersonForm({ person, allowedRoles = ALL_ROLES, onSave, onCancel,
       ...(location && { location: location as Location }),
       ...(name && { name }),
       ...(isContractor && vendor && { vendor }),
+      isVacancy,
+      vacancyApproved: isVacancy && vacancyApproved,
     };
 
     onSave(personData, allowBulkAdd ? quantity : undefined);
@@ -175,6 +180,35 @@ export function PersonForm({ person, allowedRoles = ALL_ROLES, onSave, onCancel,
                 placeholder="e.g., Acme Corp"
                 required
               />
+            </div>
+          )}
+
+          {/* Vacancy (leadership roles only) */}
+          {isLeadershipRole && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isVacancy}
+                  onChange={(e) => {
+                    setIsVacancy(e.target.checked);
+                    if (!e.target.checked) setVacancyApproved(false);
+                  }}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Vacancy</span>
+              </label>
+              {isVacancy && (
+                <label className="flex items-center gap-2 cursor-pointer ml-6">
+                  <input
+                    type="checkbox"
+                    checked={vacancyApproved}
+                    onChange={(e) => setVacancyApproved(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span className="text-sm text-gray-600">Approved vacancy</span>
+                </label>
+              )}
             </div>
           )}
 

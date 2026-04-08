@@ -3,7 +3,7 @@ import type { Portfolio, Person, Group, Division } from '../types/org';
 import { ROLE_LABELS } from '../types/org';
 import { exportTreeToPdf } from '../utils/exportPdf';
 
-type ViewMode = 'management' | 'teams';
+type ViewMode = 'management' | 'condensed' | 'teams';
 
 interface OrgTreeViewProps {
   portfolio: Portfolio;
@@ -75,14 +75,9 @@ const CARD_CLS = 'w-40 flex-shrink-0';
 
 /** Distinct colours cycled across known vendors. */
 const VENDOR_PALETTE = [
-  'bg-orange-500',
-  'bg-cyan-600',
-  'bg-rose-500',
-  'bg-amber-500',
-  'bg-lime-600',
-  'bg-fuchsia-600',
-  'bg-emerald-600',
-  'bg-sky-500',
+  'bg-orange-500', 'bg-cyan-600',    'bg-rose-500',    'bg-amber-500',
+  'bg-lime-600',   'bg-fuchsia-600', 'bg-emerald-600', 'bg-sky-500',
+  'bg-violet-600', 'bg-teal-500',    'bg-red-600',     'bg-blue-600',
 ];
 
 /** Colour used when a person has no vendor (employees). */
@@ -129,9 +124,11 @@ export function buildVendorColourMap(allPortfolios: Portfolio[]): Map<string | u
 
   for (const v of vendors) {
     let slot = vendorHash(v);
-    // Probe forward on collision
+    const start = slot;
+    // Probe forward on collision; break if all slots exhausted (allow colour reuse)
     while (usedSlots.has(slot)) {
       slot = (slot + 1) % VENDOR_PALETTE.length;
+      if (slot === start) break;
     }
     usedSlots.add(slot);
     map.set(v, VENDOR_PALETTE[slot]);
@@ -148,31 +145,60 @@ function PersonCard({
   reportCount,
   spanCount,
   vendorColour,
+  compact = false,
 }: {
   person: Person;
-  reportCount: number;
+  reportCount?: number;
   spanCount?: number;   // only supplied for Head of Engineering
   vendorColour: string;
+  compact?: boolean;    // hides Reports/Span row (condensed view)
 }) {
+  const vacancy = person.isVacancy;
+  const approved = vacancy && person.vacancyApproved;
+
+  const borderCls = vacancy
+    ? approved
+      ? 'border-2 border-dashed border-green-400'
+      : 'border-2 border-dashed border-amber-400'
+    : 'border border-gray-200';
+
+  const bgCls = vacancy
+    ? approved ? 'bg-green-50/50' : 'bg-amber-50/50'
+    : 'bg-white';
+
+  // Third line: vacancy label, reports/span stats, or blank spacer
+  let thirdLine: ReactNode;
+  if (vacancy) {
+    thirdLine = (
+      <span className={`font-semibold text-[9px] ${approved ? 'text-green-600' : 'text-amber-600'}`}>
+        {approved ? 'Approved' : 'Unapproved'}
+      </span>
+    );
+  } else if (compact) {
+    thirdLine = <>&nbsp;</>;
+  } else if (reportCount !== undefined) {
+    thirdLine = spanCount !== undefined ? (
+      <>
+        Reports&nbsp;<span className="font-semibold text-gray-600">{reportCount}</span>
+        <span className="mx-1 text-gray-300">·</span>
+        Span&nbsp;<span className="font-semibold text-gray-600">{spanCount}</span>
+      </>
+    ) : (
+      <>Reports&nbsp;<span className="font-semibold text-gray-600">{reportCount}</span></>
+    );
+  } else {
+    thirdLine = <>&nbsp;</>;
+  }
+
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden ${CARD_CLS} text-center select-none`}>
+    <div className={`${bgCls} ${borderCls} rounded-lg shadow-sm overflow-hidden ${CARD_CLS} text-center select-none`}>
       <div className={`${vendorColour} h-1 w-full`} />
       <div className="px-2 py-1.5 space-y-0.5">
         <div className="font-semibold text-gray-800 text-[11px] leading-tight truncate" title={person.name}>
           {person.name ?? <span className="italic text-gray-400">Unnamed</span>}
         </div>
         <div className="text-[10px] text-gray-500 leading-tight">{ROLE_LABELS[person.role]}</div>
-        <div className="text-[10px] text-gray-400 pt-0.5">
-          {spanCount !== undefined ? (
-            <>
-              Reports&nbsp;<span className="font-semibold text-gray-600">{reportCount}</span>
-              <span className="mx-1 text-gray-300">·</span>
-              Span&nbsp;<span className="font-semibold text-gray-600">{spanCount}</span>
-            </>
-          ) : (
-            <>Reports&nbsp;<span className="font-semibold text-gray-600">{reportCount}</span></>
-          )}
-        </div>
+        <div className="text-[10px] text-gray-400 pt-0.5">{thirdLine}</div>
       </div>
     </div>
   );
@@ -302,7 +328,7 @@ function PrincipalEngineersBranch({
           </div>
           <div className="flex items-start gap-2 flex-wrap">
             {people.map((pe) => (
-              <PersonCard key={pe.id} person={pe} reportCount={0} vendorColour={vc(pe)} />
+              <PersonCard key={pe.id} person={pe} vendorColour={vc(pe)} />
             ))}
           </div>
         </div>
@@ -333,7 +359,7 @@ function GroupSubTree({ group, vcm }: { group: Group; vcm: Map<string | undefine
     );
   }
   for (const se of group.staffEngineers) {
-    leafNodes.push(<PersonCard person={se} reportCount={0} vendorColour={vc(se)} />);
+    leafNodes.push(<PersonCard person={se} vendorColour={vc(se)} />);
   }
 
   const total = (group.manager ? 1 : 0) + groupHeadcount(group);
@@ -352,6 +378,81 @@ function GroupSubTree({ group, vcm }: { group: Group; vcm: Map<string | undefine
       children={leafNodes.length > 0 ? <TreeChildren nodes={leafNodes} /> : undefined}
     />
   );
+}
+
+// ─── Condensed group sub-tree (staff engineers stacked under EM) ─────────────
+
+function CondensedGroupSubTree({ group, vcm }: { group: Group; vcm: Map<string | undefined, string> }) {
+  const vc = (p: Person) => vcm.get(p.vendor) ?? NO_VENDOR_COLOUR;
+
+  const teamCount = group.teams.length;
+  const engineerCount = group.teams.reduce((sum, t) => sum + t.members.length, 0);
+  const teamsLabel = `${teamCount} team${teamCount !== 1 ? 's' : ''}; ${engineerCount} engineer${engineerCount !== 1 ? 's' : ''}`;
+  const subtitle = group.managedBy && !group.manager ? `Managed by ${group.managedBy} · ${teamsLabel}` : teamsLabel;
+  const groupCard = (
+    <LabelCard
+      label={group.name}
+      colour="border-blue-300 bg-blue-50 text-blue-800"
+      subtitle={subtitle}
+    />
+  );
+
+  // Build a single column: EM on top, staff engineers stacked below
+  const hasManager = !!group.manager;
+  const hasManagedBy = !!group.managedBy && !hasManager;
+  const hasStaff = group.staffEngineers.length > 0;
+
+  if (!hasManager && !hasManagedBy && !hasStaff) {
+    return <TreeNode card={groupCard} />;
+  }
+
+  const managerCard = hasManager ? (
+    <PersonCard person={group.manager!} vendorColour={vc(group.manager!)} compact />
+  ) : hasManagedBy ? (
+    <div className={`bg-amber-50 border border-amber-300 rounded-lg shadow-sm overflow-hidden ${CARD_CLS} text-center select-none`}>
+      <div className="bg-amber-400 h-1 w-full" />
+      <div className="px-2 py-1.5 space-y-0.5">
+        <div className="font-semibold text-amber-800 text-[11px] leading-tight">Managed by</div>
+        <div className="text-[10px] text-amber-700 leading-tight">{group.managedBy}</div>
+        <div className="text-[10px] text-amber-500 pt-0.5">External</div>
+      </div>
+    </div>
+  ) : null;
+
+  // Stack the manager and staff engineers in a single vertical column
+  const stackedColumn = (
+    <div className="flex flex-col items-center">
+      {managerCard}
+      {hasStaff && group.staffEngineers.map((se) => (
+        <div key={se.id} className="flex flex-col items-center">
+          <div className="w-px h-3 bg-gray-300" />
+          <PersonCard person={se} vendorColour={vc(se)} compact />
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <TreeNode card={groupCard}>
+      <VStub />
+      {stackedColumn}
+    </TreeNode>
+  );
+}
+
+// ─── Condensed division sub-tree ─────────────────────────────────────────────
+
+function CondensedDivisionSubTree({ division, vcm }: { division: Division; vcm: Map<string | undefined, string> }) {
+  const headcount = divisionHeadcount(division);
+  const divCard = (
+    <LabelCard
+      label={division.name}
+      colour="border-purple-300 bg-purple-50 text-purple-800"
+      subtitle={`${headcount} people`}
+    />
+  );
+  const groupNodes = division.groups.map((g, i) => <CondensedGroupSubTree key={i} group={g} vcm={vcm} />);
+  return <TreeNode card={divCard} children={<TreeChildren nodes={groupNodes} />} />;
 }
 
 // ─── Division sub-tree ────────────────────────────────────────────────────────
@@ -554,8 +655,63 @@ export function ManagementTree({ portfolio, vcm }: { portfolio: Portfolio; vcm: 
   );
 }
 
+/**
+ * Condensed Management View — staff engineers stacked below their EM in a
+ * single column per group, saving horizontal space for slide-friendly output.
+ */
+export function CondensedManagementTree({ portfolio, vcm }: { portfolio: Portfolio; vcm: Map<string | undefined, string> }) {
+  const totalHeadcount = portfolioHeadcount(portfolio);
+  const vc = (p: Person) => vcm.get(p.vendor) ?? NO_VENDOR_COLOUR;
+
+  const hasPEs = portfolio.principalEngineers.length > 0;
+
+  const rootCard = portfolio.headOfEngineering ? (
+    <PersonCard
+      person={portfolio.headOfEngineering}
+      vendorColour={vc(portfolio.headOfEngineering)}
+      compact
+    />
+  ) : (
+    <LabelCard
+      label={portfolio.name}
+      colour="border-indigo-400 bg-indigo-50 text-indigo-800"
+      subtitle={`${totalHeadcount} people`}
+    />
+  );
+
+  // In condensed view, PEs sit inline beside the HoE with a dashed connector
+  const rootRow = hasPEs ? (
+    <div className="flex items-center">
+      {rootCard}
+      <div className="w-6 border-t-2 border-dashed border-indigo-300 flex-shrink-0" />
+      <div className="flex items-center gap-2">
+        {portfolio.principalEngineers.map((pe) => (
+          <PersonCard key={pe.id} person={pe} vendorColour={vc(pe)} compact />
+        ))}
+      </div>
+    </div>
+  ) : rootCard;
+
+  const level2Nodes: ReactNode[] = [];
+  for (let i = 0; i < (portfolio.divisions?.length ?? 0); i++) {
+    level2Nodes.push(<CondensedDivisionSubTree key={`div-${i}`} division={portfolio.divisions![i]} vcm={vcm} />);
+  }
+  for (let i = 0; i < portfolio.groups.length; i++) {
+    level2Nodes.push(<CondensedGroupSubTree key={`grp-${i}`} group={portfolio.groups[i]} vcm={vcm} />);
+  }
+
+  const hasMain = level2Nodes.length > 0;
+
+  return (
+    <div className="flex flex-col items-center">
+      {rootRow}
+      {hasMain && <TreeChildren nodes={level2Nodes} />}
+    </div>
+  );
+}
+
 export function OrgTreeView({ portfolio, allPortfolios, onClose }: OrgTreeViewProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('management');
+  const [viewMode, setViewMode] = useState<ViewMode>('condensed');
   const [exporting, setExporting] = useState(false);
   const treeRef = useRef<HTMLDivElement>(null);
   const vcm = buildVendorColourMap(allPortfolios);
@@ -564,9 +720,12 @@ export function OrgTreeView({ portfolio, allPortfolios, onClose }: OrgTreeViewPr
   const managementTree = <ManagementTree portfolio={portfolio} vcm={vcm} />;
 
   // ── Subtitle ──────────────────────────────────────────────────────────────
-  const subtitle = viewMode === 'management'
-    ? 'Organisation Tree · Management View'
-    : 'Organisation Tree · Team View';
+  const subtitleMap: Record<ViewMode, string> = {
+    management: 'Organisation Tree · Management View',
+    condensed: 'Organisation Tree · Condensed View',
+    teams: 'Organisation Tree · Team View',
+  };
+  const subtitle = subtitleMap[viewMode];
 
   return (
     <div
@@ -583,26 +742,19 @@ export function OrgTreeView({ portfolio, allPortfolios, onClose }: OrgTreeViewPr
             </div>
             {/* View mode toggle */}
             <div className="flex rounded-lg border border-gray-200 overflow-hidden ml-4">
-              <button
-                onClick={() => setViewMode('management')}
-                className={`px-3 py-1 text-xs font-medium transition-colors ${
-                  viewMode === 'management'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Management
-              </button>
-              <button
-                onClick={() => setViewMode('teams')}
-                className={`px-3 py-1 text-xs font-medium transition-colors ${
-                  viewMode === 'teams'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Teams
-              </button>
+              {(['management', 'condensed', 'teams'] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`px-3 py-1 text-xs font-medium transition-colors ${
+                    viewMode === mode
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {mode === 'management' ? 'Management' : mode === 'condensed' ? 'Condensed' : 'Teams'}
+                </button>
+              ))}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -614,7 +766,7 @@ export function OrgTreeView({ portfolio, allPortfolios, onClose }: OrgTreeViewPr
                   await exportTreeToPdf({
                     element: treeRef.current,
                     portfolioName: portfolio.name,
-                    viewLabel: viewMode === 'management' ? 'Management' : 'Teams',
+                    viewLabel: viewMode === 'management' ? 'Management' : viewMode === 'condensed' ? 'Condensed' : 'Teams',
                   });
                 } finally {
                   setExporting(false);
@@ -655,15 +807,31 @@ export function OrgTreeView({ portfolio, allPortfolios, onClose }: OrgTreeViewPr
                 {vendor ?? 'Employee'}
               </span>
             ))}
-          {viewMode === 'management' && (
-            <span className="ml-auto text-[10px] italic text-gray-400">Span = total headcount in area</span>
+          {(viewMode === 'management' || viewMode === 'condensed') && (
+            <>
+              <span className="flex items-center gap-1.5 text-[10px] text-gray-500 ml-4">
+                <span className="inline-block w-3 h-2.5 rounded-sm border-2 border-dashed border-amber-400 flex-shrink-0" />
+                Vacancy
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                <span className="inline-block w-3 h-2.5 rounded-sm border-2 border-dashed border-green-400 flex-shrink-0" />
+                Approved
+              </span>
+              {viewMode === 'management' && (
+                <span className="ml-auto text-[10px] italic text-gray-400">Span = total headcount in area</span>
+              )}
+            </>
           )}
         </div>
 
         {/* Tree */}
         <div className="p-8 overflow-auto flex-1 min-h-0">
           <div ref={treeRef} className="min-w-max">
-            {viewMode === 'management' ? managementTree : <TeamViewTree portfolio={portfolio} vcm={vcm} />}
+            {viewMode === 'management'
+              ? managementTree
+              : viewMode === 'condensed'
+                ? <CondensedManagementTree portfolio={portfolio} vcm={vcm} />
+                : <TeamViewTree portfolio={portfolio} vcm={vcm} />}
           </div>
         </div>
       </div>

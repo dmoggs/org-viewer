@@ -11,7 +11,17 @@ export interface Person {
   type: EmployeeType;
   vendor?: string;
   location?: Location; // Optional for backwards compatibility, but required in forms
+  isVacancy?: boolean;
+  vacancyApproved?: boolean;
 }
+
+export const LEADERSHIP_ROLES: Role[] = [
+  'staff_engineer',
+  'engineering_manager',
+  'head_of_engineering',
+  'principal_engineer',
+  'senior_head_of_engineering',
+];
 
 export interface Team {
   id: string;
